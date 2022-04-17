@@ -1,0 +1,953 @@
+#include <OneWire.h>
+#include <Keypad_I2C.h>
+#include <ds1307.h>
+#include "application.h"
+#include <DHT.h>
+#include <DS18B20.h>
+#include "Particle.h"
+#include <LiquidCrystal_I2C_Spark.h>
+#include "stdio.h"
+#include "math.h"
+#define DS1307_ADDRESS 0x68
+
+#define DHTPIN 5  
+#define DHTTYPE DHT11 
+
+DHT dht(DHTPIN, DHTTYPE);
+
+LiquidCrystal_I2C *lcd;
+
+
+const byte ROWS = 4; //four rows
+const byte COLS = 4; //three columns
+char* I2CTYPE = "Adafruit_MCP23017"; //Integrado encargado de comunicacion i2c con el teclado
+
+char keys[ROWS][COLS] = {
+  {'1','4','7','*'},
+  {'2','5','8','0'},
+  {'3','6','9','#'},
+  {'A','B','C','D'}
+};
+byte rowPins[ROWS] = {7, 6, 5, 4}; //row pins
+byte colPins[COLS] = {3, 2, 1, 0}; //connect to the column pinouts of the keypad
+
+Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS, I2CTYPE );
+
+void StopCa(void);                     //Funcion para detener la calibracion e iniciar monitoreo de variables
+void Brix(void);                     //funcion para interrumpir monitoreo y tomar dato de grados brix7
+float Ecal;
+float X;
+char dkey;
+char phkey;
+int flag;
+int analogPin = A0;       // electrodo de PH connected to analog pin A0
+float valph4 = 0;        // variable para promediar el valor del ph 4 en la calibracion
+float valph7 = 0;        // variable para promediar el valor del ph 7 en la calibracion
+int addr4 = 4;           //direcciob de almacenamiento en la eprom
+int addr7=12;
+int addr10=28;
+float valueph4;          // valores guardados en la eprom de ph 4 y 7 
+float valueph7 ;
+int ledPinA5=A5;
+int ledPin = A4;
+int ledPin2 = A3;
+int ledPin3 = A2;
+bool monitorear= 0; //Variable auxiliar interrupcion monitoreo
+bool Dbrix=0;       //Variable auxiliar interrupcion grados brix
+bool DPH=0;       //Variable auxiliar interrupcion PH
+int detenerm=0;
+int c=0;
+int Valor_brix;
+int valor_brixt=0;
+float _temp;
+int   i = 0;
+float pendiente=0;
+const int16_t dsData = D6; //pin de datos sensor de temperatura tipo sonda
+// Sets Pin D6 as data pin and the only sensor on bus
+DS18B20  ds18b20(dsData, true); 
+const int      MAXRETRY          = 4;
+double   celsius;
+const char *PUBLISH_EVENT_NAME = "test1data";
+void OpA();
+void OpB();
+void OpC();
+void opD();
+void publishData();
+
+RTC_DS1307 rtc;
+
+
+
+
+
+void setup() {
+  lcd = new LiquidCrystal_I2C(0x27, 20, 4);
+  lcd->init();
+  lcd->backlight();
+  lcd->setCursor(0,0);
+  lcd->print("Bioelectronica");
+  delay(3000);
+  lcd->clear();
+  Wire.begin();
+  rtc.begin();
+  if (!rtc.isrunning()) {
+  rtc.adjust(DateTime(2021, 8, 5, 10, 26, 00)); // year, month, day, hour, min, sec
+  }
+  dht.begin();
+  pinMode(A0, INPUT);
+  pinMode(ledPin, OUTPUT); //interrupcion
+  pinMode(ledPin2, OUTPUT); //interrupcion
+  pinMode(ledPin3, OUTPUT); //interrupcion
+  pinMode(ledPinA5, OUTPUT); //interrupcion
+  attachInterrupt(D3, Stop, CHANGE);
+  attachInterrupt(D2, Brix, CHANGE);
+  attachInterrupt(D4, PH, CHANGE);
+ pinMode(dsData ,INPUT);
+ pinMode(D2 ,INPUT);
+ pinMode(D3 ,INPUT);
+ pinMode(D4 ,INPUT);
+}
+
+void loop() {
+  
+lcd->clear();
+Dbrix=0; 
+monitorear= 0;   
+digitalWrite(ledPin, LOW);  
+    
+  lcd->setCursor(0,0); //Empiezo en la posicion 6 (caracter) sobre la linea 0
+  lcd->print("A)Calibrar PH metro");
+  lcd->setCursor(0,1);
+  lcd->print("B)Conexion Sensor t");
+  lcd->setCursor(0,2);
+  lcd->print("C)Valores de cal PH");
+  lcd->setCursor(0,3);
+  lcd->print("D)Iniciar");
+int flag=0;
+
+  while(flag==0 )
+    {//mientras bandera igual 0 espera dato
+      dkey = keypad.getKey(); //se guarda en dkey la accion a realizar
+      delay(100);
+      if(dkey){flag=1;}
+    }
+  
+  if (dkey=='A')
+    { OpA();}   // calibracion phmetro
+ if (dkey=='B' )
+    { OpB();} //revicion de conexion de sensores
+ if (dkey=='C' )
+{ OpC();} //revicion de conexion de sensores
+  if (dkey=='D' )
+    { OpD();} //iniciar monitoreo de sensores
+      
+}
+
+    void OpA()
+    {    lcd->clear();
+         flag=0;
+         while(dkey=='A')
+         {   lcd->setCursor(0,0); 
+             lcd->print("---------PH---------");
+             lcd->setCursor(0,1); 
+             lcd->print("Calibrar Ph-metro?");
+             lcd->setCursor(0,2); 
+             lcd->print("A)Si");
+             lcd->setCursor(0,3);
+             lcd->print("B)No");
+                         while(flag==0 && monitorear==0)
+                        {  
+                         phkey = keypad.getKey();delay(200);
+                         if(phkey)
+                         {
+                           flag=1;
+                         }
+                         }//Esperando Respuesta de calibracion a)si b)No
+                     
+                     if(phkey=='A')
+                     {  
+                        lcd->clear();
+                        flag=0;
+                        while(phkey=='A')
+                        {
+                        lcd->clear();
+                        lcd->setCursor(0,0); 
+                        lcd->print("Sumerja el electrodo");
+                        lcd->setCursor(0,1); 
+                        lcd->print("en el buffer de Ph");
+                        lcd->setCursor(0,2);
+                        lcd->print("4 luego presione A ");
+                        lcd->setCursor(0,3);
+                        lcd->print("para continuar");
+                            while(flag==0)
+                            {  
+                                phkey = keypad.getKey();delay(200);
+                                if(phkey)
+                                {
+                                    flag=1;
+                                }
+                            }
+                     if(phkey=='A')
+                           {  
+                            lcd->clear();
+                            flag=0;
+                    
+                            while(phkey=='A')
+                            {
+                            lcd->clear();
+                            lcd->setCursor(0,0); 
+                            lcd->print("Espere...");
+                            lcd->setCursor(0,1);
+                            lcd->print("PH 4:");
+                            int cont=1;
+                            valph4=0;
+                            delay(20s);
+                            while(cont<=1000)
+                            {
+                             valph4 = ((analogRead(analogPin)*3.3)/4095)+valph4;
+                             cont=cont+1;
+                             delay(5);
+                             }
+                             valph4=valph4/1000;
+                             valueph4=0.294*valph4-0.213;
+                             EEPROM.put(addr4, valueph4);
+                             lcd->setCursor(0,2);
+                             lcd->print(valph4);
+                             lcd->print(" V");
+                             lcd->setCursor(0,3); 
+                             delay(2000);
+                             lcd->clear();
+                             lcd->setCursor(0,0); 
+                             lcd->print("Sumerja el electrodo");
+                             lcd->setCursor(0,1); 
+                             lcd->print("en el buffer de Ph");
+                             lcd->setCursor(0,2);
+                             lcd->print("7 luego presione A ");
+                             lcd->setCursor(0,3);
+                             lcd->print("para continuar"); //Fin calibracion ph 4
+                             while(flag==0)
+                            {  
+                             phkey = keypad.getKey();delay(200);
+                             if(phkey)
+                             {flag=1;}
+                            }
+                    
+                             if(phkey=='A')
+                             {  
+                             lcd->clear();
+                             flag=0;
+                    
+                             while(phkey=='A')
+                            {
+                             lcd->clear();
+                             lcd->setCursor(0,0); 
+                             lcd->print("Espere...");
+                             lcd->setCursor(0,1);
+                             lcd->print("PH 7:");
+                             int cont=1;
+                             valph7=0;
+                             delay(20s);
+                             while(cont<=1000)
+                             {
+                              valph7 = ((analogRead(analogPin)*3.3)/4095)+valph7;
+                              cont=cont+1;
+                              delay(5);
+                              }
+                             valph7=valph7/1000;
+                            
+                             valueph7=0.294*valph7-0.213;
+                             pendiente=((valueph4-valueph7)/(3*59.16))*100000;
+                             
+                             EEPROM.put(addr10, pendiente);
+                             EEPROM.put(addr7, valueph7);
+                             lcd->setCursor(0,2);
+                             lcd->print(valph7);
+                             lcd->print(" V");
+                             delay(2000);
+                             lcd->clear();
+                             lcd->setCursor(0,0); 
+                             lcd->print("Ph-metro");
+                             lcd->setCursor(0,1); 
+                             lcd->print("calibrado");
+                             lcd->setCursor(0,2);
+                             lcd->print("Ph 4:");
+                             lcd->setCursor(7,2);
+                             lcd->print(valph4);
+                             lcd->print(" V");
+                             lcd->setCursor(0,3);
+                             lcd->print("Ph 7:");
+                             lcd->setCursor(7,3);
+                             lcd->print(valph7);
+                             lcd->print(" V");
+                             delay(5000);
+                             lcd->clear();
+                                 EEPROM.get( addr4, valueph4);
+                                 EEPROM.get( addr7, valueph7);
+                                 Particle.publish("Calibrado","en pH 4",valueph4,PUBLIC);
+                                 Particle.publish("Calibrado","en pH 7",valueph7,PUBLIC);
+                                 //Ecal=(X-valueph7)*(4-7)/(valueph4-valueph7) + 7;
+                                 //Ecal=(X-valueph7)*(3/(valueph4-valueph7)) + 7;
+                                 
+                                 
+                                 
+                             phkey='salir';
+                            
+                             
+                             
+                            }
+                            }
+                        phkey='salir';
+                        }
+                    }
+                    
+                    
+                    phkey='salir';  
+                    }//fin while opcion A calibracion pH_metro
+          dkey='salir';
+         }//fin if opcion A_calibrar pH_metro
+    
+    
+    
+    
+    
+    
+        if(phkey=='B')
+        {
+            valph4=EEPROM.get( addr4, valueph4);
+            valph7=EEPROM.get( addr7, valueph7);
+            Particle.publish("Calibrado","en pH 4: "+ String(valph4),PUBLIC);
+            Particle.publish("Calibrado","en pH 7: "+  String(valph7),PUBLIC);
+            
+            Ecal=(X-valph7)*(3/(valph4-valph7)) + 7;
+            float denominador=valph4-valph7;
+            
+         lcd->clear();
+         lcd->setCursor(0,0); 
+         lcd->print("Calibracion PH");
+         lcd->setCursor(0,1); 
+         lcd->print("7+((x-");
+         lcd->setCursor(7,1);
+         lcd->print(valph7);
+         lcd->print(")*(-3))/");
+         lcd->setCursor(15,1);
+         lcd->print(denominador);
+         lcd->setCursor(0,2);
+         lcd->print("Ph 4:");
+         lcd->setCursor(7,2);
+         lcd->print(valueph4);
+         lcd->print(" V");
+         lcd->setCursor(0,3);
+         lcd->print("Ph 7:");
+         lcd->setCursor(7,3);
+         lcd->print(valueph7);
+         lcd->print(" V");
+         delay(3000);
+         lcd->clear();
+         dkey='salir';
+        }//Fin opcion B_No calibrar pH_metro
+
+            }//Fin opcion A_calibrar o B_No calibrar pH_metro
+ 
+    
+         } //fin opcion Ph  
+   
+ 
+void OpB()
+{   delay(500);
+    lcd->clear();     
+    
+        
+    monitorear=0;
+  
+    while(monitorear==0 )
+    {
+    digitalWrite(ledPin, HIGH);
+    delay(2000);
+    float _temp;
+    int   i = 0;
+    
+    do {
+    _temp = ds18b20.getTemperature();
+  } while (!ds18b20.crcCheck() && MAXRETRY > i++);
+
+  if (i < MAXRETRY) {
+    celsius = _temp;
+       // fahrenheit = ds18b20.convertToFahrenheit(_temp);
+  // lcd->setCursor(10,1);
+    
+  }
+  if(celsius==0) {
+    celsius = NAN;
+    lcd->setCursor(10,1);
+    lcd->print("Failed ds18b20!");
+    delay(300);
+    lcd->setCursor(10,1);
+    lcd->print("      ");
+    
+  }
+   else    
+       {
+           lcd->setCursor(0,0); 
+         lcd->print("Sensor ds18b20 Ok!");
+         lcd->setCursor(0,1);
+          lcd->print("T-Tanque:");
+        lcd->setCursor(10,1);
+        lcd->print(celsius);
+        
+        }
+        
+        
+        
+        
+        delay(1000);
+        float hmd = dht.readHumidity();   // Read humidity
+        float temc = dht.readTemperature();   // Read temperature as Celsius doublecambie
+        if (isnan(hmd) || isnan(temc) ) {
+        lcd->setCursor(0,2);
+        lcd->print("                    ");
+        lcd->setCursor(0,2);
+        lcd->print("Failed DHT sensor!");
+        delay(500);
+        lcd->setCursor(0,2);
+        lcd->print("                  ");
+             
+         }
+         else
+         {
+          lcd->setCursor(0,2);
+        lcd->print("                    ");
+        lcd->setCursor(0,2);
+        lcd->print("DHTSensor OK!");
+        Particle.publish("readings", String::format("{\"Hum(\%)\": %4.2f, \"Temp(°C)\": %4.2f", hmd, temc));
+        lcd->setCursor(0,3);
+        lcd->print("H.R:");
+        lcd->setCursor(5,3);
+        lcd->print(hmd,1);
+        lcd->setCursor(10,3);
+        lcd->print("T-A:");
+        lcd->setCursor(15,3);
+        lcd->print(temc,1);
+          delay(500);}
+  
+        
+  delay(1000);
+  monitorear=1;
+   lcd->clear();
+  }
+  
+  }//FinopcionB
+  
+
+ void OpC()
+{
+            EEPROM.get( addr4, valueph4);
+            EEPROM.get( addr7, valueph7);
+            EEPROM.get( addr10, pendiente);
+            Particle.publish("Calibrado","en pH 4: "+ String(valueph4),PUBLIC);
+            Particle.publish("Calibrado","en pH 7: "+  String(valueph7),PUBLIC);
+            
+            
+         lcd->clear();
+         lcd->setCursor(0,0); 
+         lcd->print("Ph-metro");
+         lcd->setCursor(9,0); 
+         lcd->print("calibrado");
+         lcd->setCursor(0,1); 
+         lcd->print("% Pendiente:");
+         lcd->setCursor(13,1);
+         lcd->print(pendiente);
+         lcd->setCursor(0,2);
+         lcd->print("Ph 4:");
+         lcd->setCursor(7,2);
+         lcd->print(valueph4*1000,4);
+         lcd->print(" mV");
+         lcd->setCursor(0,3);
+         lcd->print("Ph 7:");
+         lcd->setCursor(7,3);
+         lcd->print(valueph7*1000,4);
+         lcd->print(" mV");
+         delay(3000);
+         lcd->clear();
+               
+  
+} 
+  
+  
+ 
+void OpD()
+{       
+        lcd->clear();
+        lcd->setCursor(0,0); 
+        lcd->print("Inicializando");
+        delay(2000);
+        lcd->setCursor(0,0); 
+        lcd->print("              ");
+        monitorear=0;
+        while(monitorear==0 )
+       {
+             DateTime now = rtc.now();
+             digitalWrite(ledPin2, LOW);
+             digitalWrite(ledPin3, LOW);
+             digitalWrite(ledPinA5, LOW);
+             digitalWrite(ledPin, HIGH);
+        delay(2000);
+
+    
+        i=0;
+    
+        do {
+        _temp = ds18b20.getTemperature();
+      } while (!ds18b20.crcCheck() && MAXRETRY > i++);
+
+      if (i < MAXRETRY) {
+        celsius = _temp;
+           // fahrenheit = ds18b20.convertToFahrenheit(_temp);
+       lcd->setCursor(10,1);
+    
+      }
+    if(celsius==0) {
+        celsius = NAN;
+        lcd->setCursor(10,1);
+        lcd->print("Failed");
+        delay(300);
+        lcd->setCursor(10,1);
+        lcd->print("      ");
+    
+    }
+     delay(3000);
+
+        float hmd = dht.readHumidity();   // Read humidity
+     
+	   float temc = dht.readTemperature();   // Read temperature as Celsius
+       if (isnan(hmd) || isnan(temc) ) {
+        lcd->setCursor(0,2);
+        lcd->print("                    ");
+        lcd->setCursor(0,2);
+        lcd->print("Failed DHT sensor!");
+        delay(500);
+        lcd->setCursor(0,2);
+        lcd->print("                  ");
+             
+  }
+   
+   
+        lcd->setCursor(0,0); //Empiezo en la posicion 0 (caracter) sobre la linea 0
+        lcd->print("Valor PH:");
+        lcd->setCursor(0,1);
+        lcd->print("T-Tanque:");
+        lcd->setCursor(10,1);
+        lcd->print(celsius);
+        lcd->setCursor(0,2);
+        lcd->print("H.R:");
+        lcd->setCursor(5,2);
+        lcd->print(hmd,1);
+        lcd->setCursor(10,2);
+        lcd->print("T-A:");
+        lcd->setCursor(15,2);
+        lcd->print(temc,1);
+        lcd->setCursor(0,3); //inicio progama dato de grados brix por teclado
+        lcd->print("Grados Brix:");
+       
+   
+        int horamdatostemp=now.minute();
+        int horasdatostemp=now.second();
+        //int horamdatostemp=dateTime.minutes;
+       // int horasdatostemp=dateTime.seconds;
+
+        if(horamdatostemp%59==0 && horasdatostemp%50)
+        {//Serial.println("5 minutos: ");
+        
+        char buf[256];
+	    snprintf(buf, sizeof(buf), "{\"celsius\":%f,\"temc\":%f,\"valor_brixt\":%s,\"hmd\":%f,\"ValorPH\":%s}",  celsius,temc,"null",hmd,"null");
+    //	Serial.printlnf("publishing %s", buf);
+    	Particle.publish(PUBLISH_EVENT_NAME, buf, PRIVATE);
+    	delay(6000);
+        
+        
+        }
+  
+  /*
+      Read a byte to Ram
+      The DS1302 has 32 bytes of battery backed up
+      Ram for use as temporary storage.  See WriteRam
+      in the Setup method above on how to write to Ram. 
+  */
+  //int byte = 0; // 0-31
+  //Serial.print("Ram Read: " + String(rtc.ReadRam(byte)) + "\n");
+        
+        
+        lcd->setCursor(0,3); //inicio progama dato de grados brix por teclado
+        lcd->print("Grados Brix:");
+        if(Dbrix==1)
+        {       DPH=0;
+                digitalWrite(ledPin3, LOW);
+                digitalWrite(ledPin2, LOW);
+                digitalWrite(ledPin, LOW);
+                digitalWrite(ledPinA5, HIGH);
+                lcd->setCursor(12,3);
+                lcd->print("      ");
+                int flag=0;
+                dkey=0;
+                int flag1=0;
+                int valor_brix=0;
+                int valor_brixt=0;
+                while(flag1<2)
+                {//mientras bandera igual 0 espera dato
+                flag=0;
+                
+                while(flag==0 )
+                 {
+                      lcd->setCursor(12,3);
+                      lcd->print("_");
+                 dkey = keypad.getKey(); //se guarda en dkey la accion a realizar
+                 delay(100);
+            
+                 if(dkey){flag=1;}
+                   }
+                   
+                   
+                   if(flag1==0)
+                 {
+                      lcd->setCursor(13,3);
+                      lcd->print(dkey);
+                     dkey=dkey-48;
+                     Valor_brix=dkey*10;
+                   delay(50); //muestra primer digito de grados brix en pantalla
+                    
+                    }
+                 if(flag1==1)
+                 {
+                     lcd->setCursor(14,3);
+                     lcd->print(dkey);
+                     dkey=dkey-48;
+                     valor_brixt=Valor_brix+dkey;  
+                     lcd->setCursor(12,3);
+                 lcd->print("     ");// muestra primero y segundo digito en pantalla
+                 
+                  delay(50);
+                  
+                  
+                                            i=0;
+                                        
+                                            do {
+                                            _temp = ds18b20.getTemperature();
+                                          } while (!ds18b20.crcCheck() && MAXRETRY > i++);
+                                    
+                                          if (i < MAXRETRY) {
+                                            celsius = _temp;
+                                               // fahrenheit = ds18b20.convertToFahrenheit(_temp);
+                                           lcd->setCursor(10,1);
+                                        
+                                          }
+                                        if(celsius==0) {
+                                            celsius = NAN;
+                                            lcd->setCursor(10,1);
+                                            lcd->print("Failed");
+                                            delay(300);
+                                            lcd->setCursor(10,1);
+                                            lcd->print("      ");
+                                        
+                                        }
+                                         delay(3000);
+                                    
+                                            float hmd = dht.readHumidity();   // Read humidity
+                                         
+                                    	   float temc = dht.readTemperature();   // Read temperature as Celsius
+                                           if (isnan(hmd) || isnan(temc) ) {
+                                            lcd->setCursor(0,2);
+                                            lcd->print("                    ");
+                                            lcd->setCursor(0,2);
+                                            lcd->print("Failed DHT sensor!");
+                                            delay(500);
+                                            lcd->setCursor(0,2);
+                                            lcd->print("                  ");
+                                                 
+                                      }
+                                                      
+                                                      
+                                                      
+                  
+                  
+                  
+                  
+                  
+                     char buf[256];
+                     snprintf(buf, sizeof(buf), "{\"celsius\":%f,\"temc\":%f,\"valor_brixt\":%d,\"hmd\":%f,\"Ecal\":%f}",  celsius,temc,valor_brixt,hmd,"null");
+                	
+                	  //  snprintf(buf, sizeof(buf), "{\"celsius\":%f,\"temc\":%f,\"valor_brixt\":%d,\"ValorPH\":%s}",celsius,temc,valor_brixt,"null");
+                	Serial.printlnf("publishing %s", buf);
+                	Particle.publish(PUBLISH_EVENT_NAME, buf, PRIVATE);
+                 
+                  digitalWrite(ledPin, HIGH);
+                 }
+                 
+                 
+                  flag1=flag1+1;// cuando flag1 igual a 2 osea 2 dijitos sale del while
+                  Dbrix=0; 
+                
+                
+                 
+                 }
+                  delay(10);
+                   //Serial.println(Time.timeStr());
+                    
+                    lcd->setCursor(13,3);
+                   lcd->print(valor_brixt);
+    
+       }//finbrix
+       
+       
+       //--------------------------------------------------------------------------
+        lcd->setCursor(0,0); //inicio progama dato de grados brix por teclado
+        lcd->print("Valor Ph:");
+       float PHmeasure;
+       if(DPH==1)
+        {   valph4=EEPROM.get( addr4, valueph4);
+            valph7=EEPROM.get( addr7, valueph7);
+            
+            digitalWrite(ledPinA5, LOW);
+            digitalWrite(ledPin, LOW);
+            digitalWrite(ledPin2, HIGH);
+            digitalWrite(ledPin3, HIGH);
+            PHmeasure=0; 
+            
+            lcd->setCursor(10,0);
+                lcd->print("     ");// muestra primero y segundo digito en pantalla
+            lcd->setCursor(10,0);    
+                lcd->print("_");
+                digitalWrite(ledPin, LOW);
+                lcd->setCursor(11,0);
+                lcd->print("      ");
+                int analogvalue = 0;
+                
+                int cont=1;
+                
+                
+                              
+                delay(20s);
+                while(cont<=1000)
+                {
+               
+                 PHmeasure = ((analogRead(analogPin) * 3.3) / 4095)+PHmeasure;
+                delay(5);
+                cont=cont+1;
+                }
+                             
+                               
+                PHmeasure = PHmeasure/1000;
+                PHmeasure=0.294*PHmeasure -0.213;
+                float pendienteoriginal=0;
+                pendienteoriginal=(-3/(valph4-valph7));
+                if(celsius>15 && celsius<25)
+                {Ecal=(PHmeasure-valph7)*pendienteoriginal + 7;}
+                if(celsius>25 && celsius<35)
+                {Ecal=((PHmeasure-valueph7)*(pendienteoriginal-0.0009)) + 7;}
+                lcd->setCursor(11,0);
+                lcd->print(Ecal);
+                int flag=0;
+                dkey=0;
+                int flag1=0;
+                
+                                      i=0;
+                                        
+                                            do {
+                                            _temp = ds18b20.getTemperature();
+                                          } while (!ds18b20.crcCheck() && MAXRETRY > i++);
+                                    
+                                          if (i < MAXRETRY) {
+                                            celsius = _temp;
+                                               // fahrenheit = ds18b20.convertToFahrenheit(_temp);
+                                           lcd->setCursor(10,1);
+                                        
+                                          }
+                                        if(celsius==0) {
+                                            celsius = NAN;
+                                            lcd->setCursor(10,1);
+                                            lcd->print("Failed");
+                                            delay(300);
+                                            lcd->setCursor(10,1);
+                                            lcd->print("      ");
+                                        
+                                        }
+                                         delay(3000);
+                                    
+                                            float hmd = dht.readHumidity();   // Read humidity
+                                         
+                                    	   float temc = dht.readTemperature();   // Read temperature as Celsius
+                                           if (isnan(hmd) || isnan(temc) ) {
+                                            lcd->setCursor(0,2);
+                                            lcd->print("                    ");
+                                            lcd->setCursor(0,2);
+                                            lcd->print("Failed DHT sensor!");
+                                            delay(500);
+                                            lcd->setCursor(0,2);
+                                            lcd->print("                  ");
+                                                 
+                                      }
+                                                      
+                  
+   // char buf[256];
+//    snprintf(buf, sizeof(buf), "{\"celsius\":%f,\"temc\":%f,\"valor_brixt\":%d,\"hmd\":%f,\"Ecal\":%f}",  celsius,temc,"null",hmd,Ecal);
+ //  	Serial.printlnf("publishing %s", buf);
+//	Particle.publish(PUBLISH_EVENT_NAME, buf, PRIVATE);
+                 
+                 // DPH=0; 
+                //delay(10);
+                   
+                    
+                //codigo brixt
+                digitalWrite(ledPin3, LOW);
+                digitalWrite(ledPin2, LOW);
+                digitalWrite(ledPin, LOW);
+                digitalWrite(ledPinA5, HIGH);
+                lcd->setCursor(12,3);
+                lcd->print("      ");
+                 flag=0;
+                dkey=0;
+                 flag1=0;
+                int valor_brix=0;
+                int valor_brixt=0;
+                while(flag1<2)
+                {//mientras bandera igual 0 espera dato
+                flag=0;
+                
+                while(flag==0 )
+                 {
+                      lcd->setCursor(12,3);
+                      lcd->print("_");
+                 dkey = keypad.getKey(); //se guarda en dkey la accion a realizar
+                 delay(100);
+            
+                 if(dkey){flag=1;}
+                   }
+                   
+                   
+                   if(flag1==0)
+                 {
+                      lcd->setCursor(13,3);
+                      lcd->print(dkey);
+                     dkey=dkey-48;
+                     Valor_brix=dkey*10;
+                   delay(50); //muestra primer digito de grados brix en pantalla
+                    
+                    }
+                 if(flag1==1)
+                 {
+                     lcd->setCursor(14,3);
+                     lcd->print(dkey);
+                     dkey=dkey-48;
+                     valor_brixt=Valor_brix+dkey;  
+                     lcd->setCursor(12,3);
+                 lcd->print("     ");// muestra primero y segundo digito en pantalla
+                 
+                  delay(50);
+                  
+                  
+                                            i=0;
+                                        
+                                            do {
+                                            _temp = ds18b20.getTemperature();
+                                          } while (!ds18b20.crcCheck() && MAXRETRY > i++);
+                                    
+                                          if (i < MAXRETRY) {
+                                            celsius = _temp;
+                                               // fahrenheit = ds18b20.convertToFahrenheit(_temp);
+                                           lcd->setCursor(10,1);
+                                        
+                                          }
+                                        if(celsius==0) {
+                                            celsius = NAN;
+                                            lcd->setCursor(10,1);
+                                            lcd->print("Failed");
+                                            delay(300);
+                                            lcd->setCursor(10,1);
+                                            lcd->print("      ");
+                                        
+                                        }
+                                         delay(3000);
+                                    
+                                            float hmd = dht.readHumidity();   // Read humidity
+                                         
+                                    	   float temc = dht.readTemperature();   // Read temperature as Celsius
+                                           if (isnan(hmd) || isnan(temc) ) {
+                                            lcd->setCursor(0,2);
+                                            lcd->print("                    ");
+                                            lcd->setCursor(0,2);
+                                            lcd->print("Failed DHT sensor!");
+                                            delay(500);
+                                            lcd->setCursor(0,2);
+                                            lcd->print("                  ");
+                                                 
+                                      }
+                                                      
+                                                      
+                                                      
+                  
+                  
+                  
+                  
+                  
+                     char buf[256];
+                     snprintf(buf, sizeof(buf), "{\"celsius\":%f,\"temc\":%f,\"valor_brixt\":%d,\"hmd\":%f,\"Ecal\":%f}",  celsius,temc,valor_brixt,hmd,Ecal);
+                	
+                	  //  snprintf(buf, sizeof(buf), "{\"celsius\":%f,\"temc\":%f,\"valor_brixt\":%d,\"ValorPH\":%s}",celsius,temc,valor_brixt,"null");
+                	Serial.printlnf("publishing %s", buf);
+                	Particle.publish(PUBLISH_EVENT_NAME, buf, PRIVATE);
+                 
+                  digitalWrite(ledPin, HIGH);
+                 }
+                 
+                 
+                  flag1=flag1+1;// cuando flag1 igual a 2 osea 2 dijitos sale del while
+                  Dbrix=0; 
+                
+                
+                 
+                 }
+                  delay(10);
+                   //Serial.println(Time.timeStr());
+                    
+                    lcd->setCursor(13,3);
+                   lcd->print(valor_brixt);
+                   //fincodigobrixt
+                
+                DPH=0; 
+                delay(10);
+                
+                
+                
+                
+                 
+                 }
+                  
+    
+         }
+  
+    }
+
+
+
+
+
+
+
+
+void Stop() //pin d3
+{
+  
+ monitorear=1; 
+  
+ }
+ void Brix() //pin d2
+{
+  
+ Dbrix=1; 
+  
+ }   
+ 
+ void PH()  //pin d4
+{
+  
+ DPH=1; 
+  
+ }   

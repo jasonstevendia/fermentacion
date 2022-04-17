@@ -1,0 +1,306 @@
+*
+{
+ box-sizing: border-box;
+}
+
+body {
+	color: #666666;
+	font-size: 20px;
+	font-family: 'poppins', sans-serif;
+	line-height: 1.80857;
+	font-weight: normal;
+	overflow-x: hidden;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap');
+ 
+* {
+    margin: 0;
+    padding: 0;
+    
+    
+}
+.paginamanual
+{
+  display: inline-block;
+  margin-top: 0px 0 px;
+}
+
+.cab{
+  background-image: url(./Imagenes/cafe2.jpg);
+  display: block;
+  height: auto;
+	border-radius: 20px;
+	width: 100%;
+	margin: 0px 0px 0px 0px;
+	height: 100px;
+	padding: 10px 15px 10px 15px;
+  background-attachment: fixed;
+  background-size: contain;
+  max-width: 1000px;
+}
+
+.container
+{ display: inline-block;
+  justify-content: center;
+  margin-top: 0px;
+}
+.botonG 
+{
+  display: inline-block;
+  padding: 10px 30px;
+  border: none;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: .3s ease all;
+  outline: none;
+  background: -moz-linear-gradient(top, rgba(254,231,154,1) 0%, rgba(254,193,81,1) 100%);
+  background: -webkit-linear-gradient(top, rgba(254,231,154,1) 0%,rgba(254,193,81,1) 100%);
+  color: #1A374D;
+  font-size: 18px;
+  margin: auto;
+  position: absolute;
+  	top: 450px;
+	  left: 438px;
+}
+.botonI
+{
+  display: inline-block;
+  padding: 10px 30px;
+  border: none;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: .3s ease all;
+  outline: none;
+  background: -moz-linear-gradient(top, rgba(254,231,154,1) 0%, rgba(254,193,81,1) 100%);
+  background: -webkit-linear-gradient(top, rgba(254,231,154,1) 0%,rgba(254,193,81,1) 100%);
+  color: #1A374D;
+  font-size: 18px;
+  margin: auto;
+  position: absolute;
+  	top: 450px;
+	  left: 300px;
+}
+.botonesBDG
+{
+  display: inline-block;
+    padding: 10px 30px;
+    border: none;
+    cursor: pointer;
+    border-radius: 10px;
+    transition: .3s ease all;
+    outline: none;
+    
+    background: -moz-linear-gradient(top, rgba(254,231,154,1) 0%, rgba(254,193,81,1) 100%);
+    background: -webkit-linear-gradient(top, rgba(254,231,154,1) 0%,rgba(254,193,81,1) 100%);
+    
+   
+    color: #1A374D;
+    font-size: 16px;
+    margin: auto;
+    position: absolute;
+  	top: 185px;
+	  left: 750px;
+}
+.botonesBDD
+{
+  display: inline-block;
+    padding: 10px 30px;
+    border: none;
+    cursor: pointer;
+    border-radius: 10px;
+    transition: .3s ease all;
+    outline: none;
+    
+    background: -moz-linear-gradient(top, rgba(254,231,154,1) 0%, rgba(254,193,81,1) 100%);
+    background: -webkit-linear-gradient(top, rgba(254,231,154,1) 0%,rgba(254,193,81,1) 100%);
+    
+   
+    color: #1A374D;
+    font-size: 16px;
+    margin: auto;
+    position: absolute;
+  	top: 185px;
+	  left: 580px;
+    
+}
+
+.fondo
+{
+  background-color: #1A374D;
+  border-radius: 15px;
+  
+  min-height: auto;
+
+}
+.sesiondatos
+{ justify-content: center;
+  text-align: center;
+  
+}
+ 
+#root {
+    display: flex;
+    justify-content: center;
+
+}
+ 
+a {
+  color: #1f1f1f;
+	text-decoration: none ;
+	outline: none ;
+	-webkit-transition: all .3s ease-in-out;
+	-moz-transition: all .3s ease-in-out;
+	-ms-transition: all .3s ease-in-out;
+	-o-transition: all .3s ease-in-out;
+	transition: all .3s ease-in-out;
+    
+}
+ 
+a:hover {
+    text-decoration: underline;
+}
+
+/* estos son los estilos del manual */
+@import url('https://fonts.googleapis.com/css?family=Rajdhani:300,400,500,600,700');
+@import url('https://fonts.googleapis.com/css?family=Poppins:100,100i,200,200i,300,300i,400,400i,500,500i,600,600i,700,700i,800,800i,900,900i');
+
+/* 
+.titulo{
+  font-size: 22px;
+  letter-spacing: 0;
+	font-weight: normal;
+	position: relative;
+	padding: 0 0 10px 0;
+	font-weight: normal;
+	line-height: normal;
+	color: #111111;
+	margin: 0;
+  text-decoration: none;
+	opacity: 1;
+}
+.lista{
+  margin: 0px;
+	padding: 0px;
+	list-style: none;
+}
+.parrafo{
+  margin: 0px;
+    font-weight: 300;
+    font-size: 17px;
+    line-height: 30px;
+    color: #212222;
+} */
+
+.blog-header {
+  line-height: 1;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.blog-header-logo {
+  font-family: "Playfair Display", Georgia, "Times New Roman", serif/*rtl:Amiri, Georgia, "Times New Roman", serif*/;
+  font-size: 2.25rem;
+}
+
+.blog-header-logo:hover {
+  text-decoration: none;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Playfair Display", Georgia, "Times New Roman", serif/*rtl:Amiri, Georgia, "Times New Roman", serif*/;
+}
+
+.display-4 {
+  font-size: 2.5rem;
+}
+@media (min-width: 768px) {
+  .display-4 {
+    font-size: 3rem;
+  }
+}
+
+.nav-scroller {
+  position: relative;
+  z-index: 2;
+  height: 2.75rem;
+  overflow-y: hidden;
+}
+
+.nav-scroller .nav {
+  display: flex;
+  flex-wrap: nowrap;
+  padding-bottom: 1rem;
+  margin-top: -1px;
+  overflow-x: auto;
+  text-align: center;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+}
+
+.nav-scroller .nav-link {
+  padding-top: .75rem;
+  padding-bottom: .75rem;
+  font-size: .875rem;
+}
+
+.card-img-right {
+  height: 100%;
+  border-radius: 0 3px 3px 0;
+}
+
+.flex-auto {
+  flex: 0 0 auto;
+}
+
+.h-250 { height: 250px; }
+@media (min-width: 768px) {
+  .h-md-250 { height: 250px; }
+}
+
+/* Pagination */
+.blog-pagination {
+  margin-bottom: 4rem;
+}
+.blog-pagination > .btn {
+  border-radius: 2rem;
+}
+
+/*
+ * Blog posts
+ */
+.blog-post {
+  margin-bottom: 4rem;
+  text-align: justify;
+
+}
+.blog-post-title {
+  margin-bottom: .25rem;
+  font-size: 2.5rem;
+}
+.blog-post-meta {
+  margin-bottom: 1.25rem;
+  color: #727272;
+}
+
+/*
+ * Footer
+ */
+.blog-footer {
+  padding: 2.5rem 0;
+  color: #727272;
+  text-align: center;
+  background-color: #f9f9f9;
+  border-top: .05rem solid #e5e5e5;
+}
+.blog-footer p:last-child {
+  margin-bottom: 0;
+}
+.bd-placeholder-img{
+  display:block;
+margin:auto;
+}
